@@ -1,0 +1,52 @@
+import cv2
+import numpy as np
+
+# Carga del modelo preentrenado
+net = cv2.dnn.readNetFromCaffe(
+    "deploy.prototxt.txt",
+    "res10_300x300_ssd_iter_140000.caffemodel"
+)
+
+video_capture = cv2.VideoCapture(0)
+
+def detect_bounding_box(vid):
+    (h, w) = vid.shape[:2]
+    blob = cv2.dnn.blobFromImage(
+        cv2.resize(vid, (300, 300)),
+        1.0,
+        (300, 300),
+        (104.0, 177.0, 123.0)
+    )
+    net.setInput(blob)
+    detections = net.forward()
+    
+    faces = []
+    
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+        
+        if confidence > 0.5:  # Umbral de confianza
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (x, y, x_end, y_end) = box.astype("int")
+            faces.append((x, y, x_end - x, y_end - y))
+    
+    return faces
+
+while True:
+    result, video_frame = video_capture.read()
+
+    if result is False:
+        break
+
+    faces = detect_bounding_box(video_frame)
+    
+    for (x, y, w, h) in faces:
+        cv2.rectangle(video_frame, (x, y), (x + w, y + h), (0, 255, 0), 4)
+
+    cv2.imshow("My Face Detection Project", video_frame)
+
+    if cv2.waitKey(1) & 0xFF == ord("q"):
+        break
+
+video_capture.release()
+cv2.destroyAllWindows()
